@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -m pytest tests/test_image_processor.py::TestImageProcessor::test_get_capture_time_success -v)",
+      "Bash(python -m pytest tests/test_matcher.py::TestDiveMatcher::test_find_matches_multiple_matches -v)",
+      "Bash(python -m pytest tests/test_subsurface_trips.py -v)",
+      "Bash(python:*)",
+      "WebFetch(domain:exiftool.org)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
