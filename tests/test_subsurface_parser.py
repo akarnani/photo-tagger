@@ -5,7 +5,7 @@ import tempfile
 import os
 from datetime import datetime
 
-from photo_tagger.subsurface_parser import SubsurfaceParser, DiveSite, Dive
+from photo_tagger.subsurface_parser import SubsurfaceParser
 
 
 class TestSubsurfaceParser:

@@ -2,7 +2,7 @@
 
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 
@@ -147,7 +147,7 @@ class SubsurfaceParser:
             
             return dive
             
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             # Skip invalid dives but continue processing
             return None
     

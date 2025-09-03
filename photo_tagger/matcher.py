@@ -1,7 +1,7 @@
 """Logic for matching photos to dive sites based on timing"""
 
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from dataclasses import dataclass
 
 from .subsurface_parser import Dive

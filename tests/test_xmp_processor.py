@@ -1,6 +1,5 @@
 """Tests for XMP sidecar file functionality"""
 
-import pytest
 import tempfile
 import os
 from lxml import etree

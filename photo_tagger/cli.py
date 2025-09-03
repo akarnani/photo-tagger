@@ -3,7 +3,6 @@
 import os
 import sys
 import logging
-from typing import Optional
 
 import click
 
@@ -37,7 +36,9 @@ def setup_logging(verbose: bool) -> logging.Logger:
               help='Enable verbose logging')
 @click.option('--dry-run', '-n', is_flag=True,
               help='Show what would be done without making changes')
-def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool):
+@click.option('--recursive', '-r', is_flag=True,
+              help='Search for images recursively in subdirectories')
+def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, recursive: bool):
     """Apply dive site GPS coordinates to photo EXIF data.
     
     This tool matches photos to dive sites based on capture time and applies
@@ -61,8 +62,8 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool):
         logger.info(f"Found {len(dives)} dives")
         
         # Find images
-        logger.info(f"Scanning for images in: {images_dir}")
-        images = ImageProcessor.find_images(images_dir)
+        logger.info(f"Scanning for images in: {images_dir}{'(recursive)' if recursive else ''}")
+        images = ImageProcessor.find_images(images_dir, recursive=recursive)
         
         if not images:
             logger.error("No supported images found in directory")
@@ -139,7 +140,7 @@ WOULD UPDATE: {os.path.basename(image_path)}
                             dry_run=False
                         )
                         if gps_success:
-                            logger.info(f"Successfully updated GPS coordinates in image file")
+                            logger.info("Successfully updated GPS coordinates in image file")
                     except Exception as e:
                         logger.warning(f"Could not update GPS in image file: {e}")
                     
@@ -154,9 +155,9 @@ WOULD UPDATE: {os.path.basename(image_path)}
                         )
                         if xmp_success:
                             if gps_success:
-                                logger.info(f"Successfully created XMP sidecar with keywords")
+                                logger.info("Successfully created XMP sidecar with keywords")
                             else:
-                                logger.info(f"Successfully created XMP sidecar with keywords and GPS coordinates")
+                                logger.info("Successfully created XMP sidecar with keywords and GPS coordinates")
                     except Exception as e:
                         logger.error(f"Failed to create XMP sidecar: {e}")
                     
@@ -164,11 +165,11 @@ WOULD UPDATE: {os.path.basename(image_path)}
                     if xmp_success:
                         processed_count += 1
                         if gps_success:
-                            logger.info(f"GPS coordinates written to image file and XMP sidecar created")
+                            logger.info("GPS coordinates written to image file and XMP sidecar created")
                         else:
-                            logger.info(f"GPS coordinates written to XMP sidecar (image format not supported)")
+                            logger.info("GPS coordinates written to XMP sidecar (image format not supported)")
                     else:
-                        logger.error(f"Failed to create XMP sidecar")
+                        logger.error("Failed to create XMP sidecar")
                         error_count += 1
                         
             except Exception as e:

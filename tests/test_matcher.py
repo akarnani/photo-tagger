@@ -1,9 +1,6 @@
 """Tests for matcher module"""
 
-import pytest
-import tempfile
-import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 
 from photo_tagger.matcher import DiveMatcher, InteractiveMatcher, Match

@@ -35,6 +35,15 @@ python -m pytest tests/test_matcher.py::TestDiveMatcher::test_find_matches_multi
 python -m pytest tests/ -v --cov=photo_tagger
 ```
 
+### Code Quality and Linting
+```bash
+# Run ruff linter to check for issues
+ruff check .
+
+# Automatically fix linting issues
+ruff check --fix .
+```
+
 ### Running the Application
 ```bash
 # Basic usage
@@ -82,6 +91,7 @@ Core libraries:
 - `python-dateutil==2.8.2` - Date/time parsing
 - `click==8.1.7` - Command-line interface
 - `pytest==7.4.3` - Testing framework
+- `ruff` - Python linter and code formatter
 
 ## Important Development Notes
 
@@ -91,3 +101,4 @@ Core libraries:
 - The tool is idempotent - safe to run multiple times on the same photo set
 - Always test with dry-run mode first when making changes to matching logic
 - EXIF writing requires proper file permissions - handle read-only files gracefully
+- **ALWAYS run `ruff check --fix .` after making any code changes to ensure code quality and fix linting issues**

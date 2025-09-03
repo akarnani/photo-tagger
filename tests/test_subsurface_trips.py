@@ -1,11 +1,9 @@
 """Tests for subsurface_parser module with trip organization"""
 
-import pytest
 import tempfile
 import os
-from datetime import datetime
 
-from photo_tagger.subsurface_parser import SubsurfaceParser, DiveSite, Dive
+from photo_tagger.subsurface_parser import SubsurfaceParser
 
 
 class TestSubsurfaceTripParsing:

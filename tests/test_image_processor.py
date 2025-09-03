@@ -4,7 +4,7 @@ import pytest
 import tempfile
 import os
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from photo_tagger.image_processor import ImageProcessor
 

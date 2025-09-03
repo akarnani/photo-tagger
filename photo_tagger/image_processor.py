@@ -6,7 +6,6 @@ import exifread
 import exiv2
 from datetime import datetime
 from typing import Optional, Tuple, List
-from fractions import Fraction
 from lxml import etree
 
 
@@ -266,18 +265,38 @@ class ImageProcessor:
         return degrees, minutes, seconds
     
     @staticmethod
-    def find_images(directory: str) -> list:
-        """Find all supported image files in a directory"""
+    def find_images(directory: str, recursive: bool = True) -> list:
+        """Find all supported image files in a directory
+        
+        Args:
+            directory: Directory to search in
+            recursive: If True, search recursively in subdirectories. If False, only search the specified directory.
+        """
         images = []
         
         if not os.path.exists(directory):
             raise FileNotFoundError(f"Directory not found: {directory}")
         
-        for root, dirs, files in os.walk(directory):
-            for file in files:
-                ext = os.path.splitext(file)[1].lower()
-                if ext in ImageProcessor.SUPPORTED_EXTENSIONS:
-                    images.append(os.path.join(root, file))
+        if recursive:
+            # Recursive search (original behavior)
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    ext = os.path.splitext(file)[1].lower()
+                    if ext in ImageProcessor.SUPPORTED_EXTENSIONS:
+                        images.append(os.path.join(root, file))
+        else:
+            # Non-recursive search (only in specified directory)
+            try:
+                files = os.listdir(directory)
+                for file in files:
+                    file_path = os.path.join(directory, file)
+                    # Only process files, not directories
+                    if os.path.isfile(file_path):
+                        ext = os.path.splitext(file)[1].lower()
+                        if ext in ImageProcessor.SUPPORTED_EXTENSIONS:
+                            images.append(file_path)
+            except OSError:
+                raise FileNotFoundError(f"Cannot access directory: {directory}")
         
         return sorted(images)
     
