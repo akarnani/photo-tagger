@@ -7,7 +7,7 @@ import logging
 import click
 
 from .subsurface_parser import SubsurfaceParser
-from .image_processor import ImageProcessor
+from .media_processor import MediaProcessor
 from .matcher import InteractiveMatcher
 
 
@@ -31,18 +31,20 @@ def setup_logging(verbose: bool) -> logging.Logger:
 @click.option('--subsurface-file', '-s', required=True, 
               help='Path to Subsurface diving log file (.ssrf)')
 @click.option('--images-dir', '-i', required=True,
-              help='Directory containing RAW image files')
+              help='Directory containing media files (images and videos)')
 @click.option('--verbose', '-v', is_flag=True,
               help='Enable verbose logging')
 @click.option('--dry-run', '-n', is_flag=True,
               help='Show what would be done without making changes')
 @click.option('--recursive', '-r', is_flag=True,
-              help='Search for images recursively in subdirectories')
-def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, recursive: bool):
-    """Apply dive site GPS coordinates to photo EXIF data.
+              help='Search for media files recursively in subdirectories')
+@click.option('--exclude-folders', '-e', multiple=True,
+              help='Folder names to exclude from recursive search (can be specified multiple times)')
+def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, recursive: bool, exclude_folders: tuple):
+    """Apply dive site GPS coordinates to media file metadata.
     
-    This tool matches photos to dive sites based on capture time and applies
-    GPS coordinates from the dive sites to the photo EXIF data.
+    This tool matches photos and videos to dive sites based on capture time and applies
+    GPS coordinates from the dive sites to the media file metadata.
     """
     logger = setup_logging(verbose)
     
@@ -61,38 +63,40 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
         
         logger.info(f"Found {len(dives)} dives")
         
-        # Find images
-        logger.info(f"Scanning for images in: {images_dir}{'(recursive)' if recursive else ''}")
-        images = ImageProcessor.find_images(images_dir, recursive=recursive)
+        # Find media files
+        excluded_folders_list = list(exclude_folders) if exclude_folders else None
+        exclude_info = f" (excluding: {', '.join(excluded_folders_list)})" if excluded_folders_list else ""
+        logger.info(f"Scanning for media files in: {images_dir}{'(recursive)' if recursive else ''}{exclude_info}")
+        media_files = MediaProcessor.find_media_files(images_dir, recursive=recursive, excluded_folders=excluded_folders_list)
         
-        if not images:
-            logger.error("No supported images found in directory")
+        if not media_files:
+            logger.error("No supported media files found in directory")
             sys.exit(1)
         
-        logger.info(f"Found {len(images)} images")
+        logger.info(f"Found {len(media_files)} media files")
         
         # Create matcher
         matcher = InteractiveMatcher(dives)
         
-        # Process each image
+        # Process each media file
         processed_count = 0
         skipped_count = 0
         error_count = 0
         
-        for image_path in images:
-            logger.info(f"Processing: {os.path.basename(image_path)}")
+        for media_path in media_files:
+            logger.info(f"Processing: {os.path.basename(media_path)}")
             
             try:
-                # Get image capture time
-                processor = ImageProcessor(image_path)
+                # Create appropriate processor for the media file
+                processor = MediaProcessor.create_processor(media_path)
                 capture_time = processor.get_capture_time()
                 
                 if not capture_time:
-                    logger.warning(f"No capture time found for {os.path.basename(image_path)}")
+                    logger.warning(f"No capture time found for {os.path.basename(media_path)}")
                     skipped_count += 1
                     continue
                 
-                logger.debug(f"Image capture time: {capture_time}")
+                logger.debug(f"Media capture time: {capture_time}")
                 
                 # Check for existing GPS
                 existing_gps = processor.get_current_gps()
@@ -100,10 +104,10 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
                     logger.debug(f"Existing GPS coordinates: {existing_gps}")
                 
                 # Find match
-                match = matcher.get_user_confirmed_match(image_path)
+                match = matcher.get_user_confirmed_match(media_path)
                 
                 if not match:
-                    logger.info(f"No dive match selected for {os.path.basename(image_path)}")
+                    logger.info(f"No dive match selected for {os.path.basename(media_path)}")
                     skipped_count += 1
                     continue
                 
@@ -116,8 +120,8 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
                 # Show what we're doing
                 if dry_run:
                     click.echo(f"""
-WOULD UPDATE: {os.path.basename(image_path)}
-  Photo time: {capture_time.strftime('%Y-%m-%d %H:%M:%S')}
+WOULD UPDATE: {os.path.basename(media_path)}
+  Capture time: {capture_time.strftime('%Y-%m-%d %H:%M:%S')}
   Matched to: Dive #{match.dive.number} - {match.dive.site.name}
   Dive time: {match.dive.time.strftime('%Y-%m-%d %H:%M:%S')}
   GPS: {match.dive.site.latitude:.6f}, {match.dive.site.longitude:.6f}
@@ -127,12 +131,12 @@ WOULD UPDATE: {os.path.basename(image_path)}
                     processed_count += 1
                 else:
                     # Apply GPS coordinates and XMP keywords
-                    logger.info(f"Applying GPS and keywords from '{match.dive.site.name}' to {os.path.basename(image_path)}")
+                    logger.info(f"Applying GPS and keywords from '{match.dive.site.name}' to {os.path.basename(media_path)}")
                     
                     gps_success = False
                     xmp_success = False
                     
-                    # Try to apply GPS coordinates (may fail for some RAW formats)
+                    # Try to apply GPS coordinates (may fail for some formats)
                     try:
                         gps_success = processor.set_gps_coordinates(
                             match.dive.site.latitude, 
@@ -140,12 +144,12 @@ WOULD UPDATE: {os.path.basename(image_path)}
                             dry_run=False
                         )
                         if gps_success:
-                            logger.info("Successfully updated GPS coordinates in image file")
+                            logger.info("Successfully updated GPS coordinates in media file")
                     except Exception as e:
-                        logger.warning(f"Could not update GPS in image file: {e}")
+                        logger.warning(f"Could not update GPS in media file: {e}")
                     
                     # Create XMP sidecar with dive site name as keyword and GPS coordinates
-                    # Include GPS in XMP if image GPS writing failed
+                    # Include GPS in XMP if media GPS writing failed
                     try:
                         xmp_success = processor.create_xmp_sidecar(
                             keywords=[match.dive.site.name],
@@ -165,21 +169,21 @@ WOULD UPDATE: {os.path.basename(image_path)}
                     if xmp_success:
                         processed_count += 1
                         if gps_success:
-                            logger.info("GPS coordinates written to image file and XMP sidecar created")
+                            logger.info("GPS coordinates written to media file and XMP sidecar created")
                         else:
-                            logger.info("GPS coordinates written to XMP sidecar (image format not supported)")
+                            logger.info("GPS coordinates written to XMP sidecar (media format not supported)")
                     else:
                         logger.error("Failed to create XMP sidecar")
                         error_count += 1
                         
             except Exception as e:
-                logger.error(f"Error processing {os.path.basename(image_path)}: {e}")
+                logger.error(f"Error processing {os.path.basename(media_path)}: {e}")
                 error_count += 1
                 continue
         
         # Summary
         click.echo(f"\n{'DRY RUN ' if dry_run else ''}SUMMARY:")
-        click.echo(f"  Total images: {len(images)}")
+        click.echo(f"  Total media files: {len(media_files)}")
         click.echo(f"  {'Would update' if dry_run else 'Updated'}: {processed_count}")
         click.echo(f"  Skipped: {skipped_count}")
         if error_count > 0:

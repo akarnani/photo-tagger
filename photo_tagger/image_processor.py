@@ -265,21 +265,26 @@ class ImageProcessor:
         return degrees, minutes, seconds
     
     @staticmethod
-    def find_images(directory: str, recursive: bool = True) -> list:
+    def find_images(directory: str, recursive: bool = True, excluded_folders: Optional[List[str]] = None) -> list:
         """Find all supported image files in a directory
         
         Args:
             directory: Directory to search in
             recursive: If True, search recursively in subdirectories. If False, only search the specified directory.
+            excluded_folders: List of folder names to exclude from search
         """
         images = []
+        excluded_folders = excluded_folders or []
         
         if not os.path.exists(directory):
             raise FileNotFoundError(f"Directory not found: {directory}")
         
         if recursive:
-            # Recursive search (original behavior)
+            # Recursive search with folder exclusion
             for root, dirs, files in os.walk(directory):
+                # Remove excluded directories from the search
+                dirs[:] = [d for d in dirs if d not in excluded_folders]
+                
                 for file in files:
                     ext = os.path.splitext(file)[1].lower()
                     if ext in ImageProcessor.SUPPORTED_EXTENSIONS:
