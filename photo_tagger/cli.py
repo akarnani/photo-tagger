@@ -3,6 +3,7 @@
 import os
 import sys
 import logging
+from contextlib import nullcontext
 
 import click
 
@@ -155,58 +156,61 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
 
         # Use progress bar unless in verbose mode or dry run
         show_progress = not verbose and not dry_run
-        media_iterator = click.progressbar(
+
+        # Create context manager for progress bar or no-op
+        progress_context = click.progressbar(
             media_files,
             label='Processing files',
             show_pos=True,
             item_show_func=lambda x: os.path.basename(x) if x else ''
-        ) if show_progress else media_files
+        ) if show_progress else nullcontext(media_files)
 
-        for media_path in media_iterator:
-            logger.debug(f"Processing: {os.path.basename(media_path)}")
+        with progress_context as media_iterator:
+            for media_path in media_iterator:
+                logger.debug(f"Processing: {os.path.basename(media_path)}")
 
-            try:
-                # Create appropriate processor for the media file
-                processor = MediaProcessor.create_processor(media_path)
-                capture_time = processor.get_capture_time()
+                try:
+                    # Create appropriate processor for the media file
+                    processor = MediaProcessor.create_processor(media_path)
+                    capture_time = processor.get_capture_time()
 
-                if not capture_time:
-                    logger.warning(f"No capture time found for {os.path.basename(media_path)}")
-                    skipped_count += 1
-                    continue
+                    if not capture_time:
+                        logger.warning(f"No capture time found for {os.path.basename(media_path)}")
+                        skipped_count += 1
+                        continue
 
-                # Track photo timestamp for date range analysis
-                photo_timestamps.append(capture_time)
+                    # Track photo timestamp for date range analysis
+                    photo_timestamps.append(capture_time)
 
-                logger.debug(f"Media capture time: {capture_time}")
+                    logger.debug(f"Media capture time: {capture_time}")
 
-                # Check for existing GPS
-                existing_gps = processor.get_current_gps()
-                if existing_gps and not dry_run:
-                    logger.debug(f"Existing GPS coordinates: {existing_gps}")
+                    # Check for existing GPS
+                    existing_gps = processor.get_current_gps()
+                    if existing_gps and not dry_run:
+                        logger.debug(f"Existing GPS coordinates: {existing_gps}")
 
-                # Find match
-                match = matcher.get_user_confirmed_match(media_path)
+                    # Find match
+                    match = matcher.get_user_confirmed_match(media_path)
 
-                if not match:
-                    logger.debug(f"No dive match selected for {os.path.basename(media_path)}")
-                    skipped_count += 1
-                    continue
+                    if not match:
+                        logger.debug(f"No dive match selected for {os.path.basename(media_path)}")
+                        skipped_count += 1
+                        continue
 
-                # Track that this dive had a photo matched to it
-                if match.dive.number not in matched_dives:
-                    matched_dives[match.dive.number] = 0
-                matched_dives[match.dive.number] += 1
+                    # Track that this dive had a photo matched to it
+                    if match.dive.number not in matched_dives:
+                        matched_dives[match.dive.number] = 0
+                    matched_dives[match.dive.number] += 1
 
-                # Check if dive site has GPS coordinates
-                if not (match.dive.site.latitude and match.dive.site.longitude):
-                    logger.warning(f"Dive site '{match.dive.site.name}' has no GPS coordinates")
-                    skipped_count += 1
-                    continue
-                
-                # Show what we're doing
-                if dry_run:
-                    click.echo(f"""
+                    # Check if dive site has GPS coordinates
+                    if not (match.dive.site.latitude and match.dive.site.longitude):
+                        logger.warning(f"Dive site '{match.dive.site.name}' has no GPS coordinates")
+                        skipped_count += 1
+                        continue
+
+                    # Show what we're doing
+                    if dry_run:
+                        click.echo(f"""
 WOULD UPDATE: {os.path.basename(media_path)}
   Capture time: {capture_time.strftime('%Y-%m-%d %H:%M:%S')}
   Matched to: Dive #{match.dive.number} - {match.dive.site.name}
@@ -215,52 +219,52 @@ WOULD UPDATE: {os.path.basename(media_path)}
   Confidence: {match.confidence}
   XMP Keywords: {match.dive.site.name}
 """)
-                    processed_count += 1
-                else:
-                    # Apply GPS coordinates and XMP keywords
-                    logger.debug(f"Applying GPS and keywords from '{match.dive.site.name}' to {os.path.basename(media_path)}")
-
-                    gps_success = False
-                    xmp_success = False
-
-                    # Try to apply GPS coordinates (may fail for some formats)
-                    try:
-                        gps_success = processor.set_gps_coordinates(
-                            match.dive.site.latitude,
-                            match.dive.site.longitude,
-                            dry_run=False
-                        )
-                        if gps_success:
-                            logger.debug("Successfully updated GPS coordinates in media file")
-                    except Exception as e:
-                        logger.warning(f"Could not update GPS in media file: {e}")
-
-                    # Create XMP sidecar with dive site name as keyword and GPS coordinates
-                    # Include GPS in XMP if media GPS writing failed
-                    try:
-                        xmp_success = processor.create_xmp_sidecar(
-                            keywords=[match.dive.site.name],
-                            latitude=match.dive.site.latitude if not gps_success else None,
-                            longitude=match.dive.site.longitude if not gps_success else None,
-                            dry_run=False
-                        )
-                        if xmp_success:
-                            logger.debug(f"Created XMP sidecar with keywords{' and GPS' if not gps_success else ''}")
-                    except Exception as e:
-                        logger.error(f"Failed to create XMP sidecar: {e}")
-
-                    # Consider it successful if at least XMP was created
-                    if xmp_success:
                         processed_count += 1
-                        logger.debug(f"Successfully processed {os.path.basename(media_path)}")
                     else:
-                        logger.error(f"Failed to process {os.path.basename(media_path)}")
-                        error_count += 1
-                        
-            except Exception as e:
-                logger.error(f"Error processing {os.path.basename(media_path)}: {e}")
-                error_count += 1
-                continue
+                        # Apply GPS coordinates and XMP keywords
+                        logger.debug(f"Applying GPS and keywords from '{match.dive.site.name}' to {os.path.basename(media_path)}")
+
+                        gps_success = False
+                        xmp_success = False
+
+                        # Try to apply GPS coordinates (may fail for some formats)
+                        try:
+                            gps_success = processor.set_gps_coordinates(
+                                match.dive.site.latitude,
+                                match.dive.site.longitude,
+                                dry_run=False
+                            )
+                            if gps_success:
+                                logger.debug("Successfully updated GPS coordinates in media file")
+                        except Exception as e:
+                            logger.warning(f"Could not update GPS in media file: {e}")
+
+                        # Create XMP sidecar with dive site name as keyword and GPS coordinates
+                        # Include GPS in XMP if media GPS writing failed
+                        try:
+                            xmp_success = processor.create_xmp_sidecar(
+                                keywords=[match.dive.site.name],
+                                latitude=match.dive.site.latitude if not gps_success else None,
+                                longitude=match.dive.site.longitude if not gps_success else None,
+                                dry_run=False
+                            )
+                            if xmp_success:
+                                logger.debug(f"Created XMP sidecar with keywords{' and GPS' if not gps_success else ''}")
+                        except Exception as e:
+                            logger.error(f"Failed to create XMP sidecar: {e}")
+
+                        # Consider it successful if at least XMP was created
+                        if xmp_success:
+                            processed_count += 1
+                            logger.debug(f"Successfully processed {os.path.basename(media_path)}")
+                        else:
+                            logger.error(f"Failed to process {os.path.basename(media_path)}")
+                            error_count += 1
+
+                except Exception as e:
+                    logger.error(f"Error processing {os.path.basename(media_path)}: {e}")
+                    error_count += 1
+                    continue
         
         # Summary
         click.echo(f"\n{'DRY RUN ' if dry_run else ''}SUMMARY:")
