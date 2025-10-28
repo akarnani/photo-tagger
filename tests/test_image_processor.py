@@ -207,3 +207,72 @@ class TestImageProcessor:
         """Test finding images in nonexistent directory"""
         with pytest.raises(FileNotFoundError, match="Directory not found"):
             ImageProcessor.find_images('/nonexistent/directory')
+
+    def test_find_images_with_folder_exclusion(self):
+        """Test finding images with folder exclusion"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create test structure
+            jpg_file = os.path.join(temp_dir, 'test.jpg')
+            with open(jpg_file, 'w') as f:
+                f.write('test')
+
+            # Create Output subdirectory (to be excluded)
+            output_dir = os.path.join(temp_dir, 'Output')
+            os.makedirs(output_dir)
+            output_jpg = os.path.join(output_dir, 'output.jpg')
+            with open(output_jpg, 'w') as f:
+                f.write('test')
+
+            # Create Cache subdirectory (to be excluded)
+            cache_dir = os.path.join(temp_dir, 'Cache')
+            os.makedirs(cache_dir)
+            cache_jpg = os.path.join(cache_dir, 'cache.jpg')
+            with open(cache_jpg, 'w') as f:
+                f.write('test')
+
+            # Create Normal subdirectory (not excluded)
+            normal_dir = os.path.join(temp_dir, 'Normal')
+            os.makedirs(normal_dir)
+            normal_jpg = os.path.join(normal_dir, 'normal.jpg')
+            with open(normal_jpg, 'w') as f:
+                f.write('test')
+
+            # Find images with exclusion
+            images = ImageProcessor.find_images(
+                temp_dir,
+                recursive=True,
+                excluded_folders=['Output', 'Cache']
+            )
+
+            assert len(images) == 2  # test.jpg and Normal/normal.jpg
+            assert jpg_file in images
+            assert normal_jpg in images
+            assert output_jpg not in images
+            assert cache_jpg not in images
+
+    def test_find_images_recursive_vs_nonrecursive(self):
+        """Test recursive vs non-recursive image finding"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create test files
+            root_jpg = os.path.join(temp_dir, 'root.jpg')
+            with open(root_jpg, 'w') as f:
+                f.write('test')
+
+            # Create subdirectory
+            sub_dir = os.path.join(temp_dir, 'subdir')
+            os.makedirs(sub_dir)
+            sub_jpg = os.path.join(sub_dir, 'sub.jpg')
+            with open(sub_jpg, 'w') as f:
+                f.write('test')
+
+            # Non-recursive should only find root image
+            images_nonrecursive = ImageProcessor.find_images(temp_dir, recursive=False)
+            assert len(images_nonrecursive) == 1
+            assert root_jpg in images_nonrecursive
+            assert sub_jpg not in images_nonrecursive
+
+            # Recursive should find both
+            images_recursive = ImageProcessor.find_images(temp_dir, recursive=True)
+            assert len(images_recursive) == 2
+            assert root_jpg in images_recursive
+            assert sub_jpg in images_recursive

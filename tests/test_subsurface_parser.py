@@ -159,11 +159,83 @@ class TestSubsurfaceParser:
 <divelog>
   <unclosed_tag>
 </divelog>'''
-        
+
         file_path = self.create_test_ssrf_file(content)
         try:
             parser = SubsurfaceParser(file_path)
             with pytest.raises(ValueError, match="Invalid XML"):
                 parser.parse()
+        finally:
+            os.unlink(file_path)
+
+    def test_parse_dive_with_tags(self):
+        """Test parsing dive with tags"""
+        content = '''<?xml version="1.0"?>
+<divelog program='subsurface' version='3'>
+<divesites>
+<site uuid='site1' name='Test Site' gps='21.0 -72.0'>
+</site>
+</divesites>
+<dive number='1' date='2024-01-15' time='10:30:00' duration='45:00' tags='camera, night' divesiteid='site1'>
+</dive>
+</divelog>'''
+
+        file_path = self.create_test_ssrf_file(content)
+        try:
+            parser = SubsurfaceParser(file_path)
+            dives = parser.parse()
+
+            assert len(dives) == 1
+            dive = dives[0]
+            assert len(dive.tags) == 2
+            assert 'camera' in dive.tags
+            assert 'night' in dive.tags
+        finally:
+            os.unlink(file_path)
+
+    def test_parse_dive_without_tags(self):
+        """Test parsing dive without tags"""
+        content = '''<?xml version="1.0"?>
+<divelog program='subsurface' version='3'>
+<divesites>
+<site uuid='site1' name='Test Site' gps='21.0 -72.0'>
+</site>
+</divesites>
+<dive number='1' date='2024-01-15' time='10:30:00' duration='45:00' divesiteid='site1'>
+</dive>
+</divelog>'''
+
+        file_path = self.create_test_ssrf_file(content)
+        try:
+            parser = SubsurfaceParser(file_path)
+            dives = parser.parse()
+
+            assert len(dives) == 1
+            dive = dives[0]
+            assert len(dive.tags) == 0
+        finally:
+            os.unlink(file_path)
+
+    def test_parse_dive_with_single_tag(self):
+        """Test parsing dive with single tag"""
+        content = '''<?xml version="1.0"?>
+<divelog program='subsurface' version='3'>
+<divesites>
+<site uuid='site1' name='Test Site' gps='21.0 -72.0'>
+</site>
+</divesites>
+<dive number='1' date='2024-01-15' time='10:30:00' duration='45:00' tags='camera' divesiteid='site1'>
+</dive>
+</divelog>'''
+
+        file_path = self.create_test_ssrf_file(content)
+        try:
+            parser = SubsurfaceParser(file_path)
+            dives = parser.parse()
+
+            assert len(dives) == 1
+            dive = dives[0]
+            assert len(dive.tags) == 1
+            assert 'camera' in dive.tags
         finally:
             os.unlink(file_path)
