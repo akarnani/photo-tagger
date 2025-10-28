@@ -142,12 +142,10 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
 
         # Show summary of what we're about to process
         click.echo(f"Found {len(media_files)} media files and {len(dives)} dives")
-        if not verbose and not dry_run:
-            click.echo("Processing files...")
-        
+
         # Create matcher
         matcher = InteractiveMatcher(dives)
-        
+
         # Process each media file
         processed_count = 0
         skipped_count = 0
@@ -155,7 +153,16 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
         matched_dives = {}  # Track dive number -> count of matched files
         photo_timestamps = []  # Track all photo timestamps to determine date range
 
-        for media_path in media_files:
+        # Use progress bar unless in verbose mode or dry run
+        show_progress = not verbose and not dry_run
+        media_iterator = click.progressbar(
+            media_files,
+            label='Processing files',
+            show_pos=True,
+            item_show_func=lambda x: os.path.basename(x) if x else ''
+        ) if show_progress else media_files
+
+        for media_path in media_iterator:
             logger.debug(f"Processing: {os.path.basename(media_path)}")
 
             try:
