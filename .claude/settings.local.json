@@ -9,7 +9,11 @@
       "Bash(python -m pytest tests/test_matcher.py::TestDiveMatcher::test_find_matches_multiple_matches -v)",
       "Bash(python -m pytest tests/test_subsurface_trips.py -v)",
       "Bash(python:*)",
-      "WebFetch(domain:exiftool.org)"
+      "WebFetch(domain:exiftool.org)",
+      "WebSearch",
+      "Bash(ruff check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
