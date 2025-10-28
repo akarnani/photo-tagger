@@ -102,3 +102,4 @@ Core libraries:
 - Always test with dry-run mode first when making changes to matching logic
 - EXIF writing requires proper file permissions - handle read-only files gracefully
 - **ALWAYS run `ruff check --fix .` after making any code changes to ensure code quality and fix linting issues**
+- "Each change should update the version info.  If it is a bugfix or correction in behavior update the last part of the version (0.0.<change me>).  If it is a more significant update, especially if there are backwards imcompatible things update the middle part (0.<change me>.0)."
