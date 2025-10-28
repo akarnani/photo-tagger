@@ -27,12 +27,35 @@ def setup_logging(verbose: bool) -> logging.Logger:
     return logger
 
 
+def _print_dive_match_summary(dives, matched_dives):
+    """Print summary of dives with matched files
+
+    Args:
+        dives: List of all dives
+        matched_dives: Dictionary mapping dive number to count of matched files
+    """
+    if not matched_dives:
+        return
+
+    # Create a map of dive number to dive object for quick lookup
+    dive_map = {dive.number: dive for dive in dives}
+
+    click.echo("\n📸 MATCHED DIVES:")
+    # Sort by dive number
+    for dive_num in sorted(matched_dives.keys()):
+        count = matched_dives[dive_num]
+        dive = dive_map.get(dive_num)
+        if dive:
+            plural = "file" if count == 1 else "files"
+            click.echo(f"  • Dive #{dive_num}: {dive.site.name} - {count} {plural}")
+
+
 def _check_camera_tag_warnings(dives, matched_dives, photo_timestamps):
     """Check for camera tag mismatches and print warnings
 
     Args:
         dives: List of all dives
-        matched_dives: Set of dive numbers that had photos matched
+        matched_dives: Dictionary mapping dive number to count of matched files
         photo_timestamps: List of all photo capture timestamps
     """
     if not photo_timestamps:
@@ -129,7 +152,7 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
         processed_count = 0
         skipped_count = 0
         error_count = 0
-        matched_dives = set()  # Track which dives had photos matched
+        matched_dives = {}  # Track dive number -> count of matched files
         photo_timestamps = []  # Track all photo timestamps to determine date range
 
         for media_path in media_files:
@@ -164,7 +187,9 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
                     continue
 
                 # Track that this dive had a photo matched to it
-                matched_dives.add(match.dive.number)
+                if match.dive.number not in matched_dives:
+                    matched_dives[match.dive.number] = 0
+                matched_dives[match.dive.number] += 1
 
                 # Check if dive site has GPS coordinates
                 if not (match.dive.site.latitude and match.dive.site.longitude):
@@ -237,6 +262,9 @@ WOULD UPDATE: {os.path.basename(media_path)}
         click.echo(f"  Skipped: {skipped_count}")
         if error_count > 0:
             click.echo(f"  Errors: {error_count}")
+
+        # Show which dives had files matched
+        _print_dive_match_summary(dives, matched_dives)
 
         # Camera tag analysis
         if photo_timestamps:
