@@ -98,27 +98,29 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
     
     try:
         # Parse subsurface file
-        logger.info(f"Parsing subsurface file: {subsurface_file}")
+        logger.debug(f"Parsing subsurface file: {subsurface_file}")
         parser = SubsurfaceParser(subsurface_file)
         dives = parser.parse()
-        
+
         if not dives:
             logger.error("No dives found in subsurface file")
             sys.exit(1)
-        
-        logger.info(f"Found {len(dives)} dives")
-        
+
+        logger.debug(f"Found {len(dives)} dives")
+
         # Find media files
         excluded_folders_list = list(exclude_folders) if exclude_folders else None
-        exclude_info = f" (excluding: {', '.join(excluded_folders_list)})" if excluded_folders_list else ""
-        logger.info(f"Scanning for media files in: {images_dir}{'(recursive)' if recursive else ''}{exclude_info}")
+        logger.debug(f"Scanning for media files in: {images_dir}")
         media_files = MediaProcessor.find_media_files(images_dir, recursive=recursive, excluded_folders=excluded_folders_list)
-        
+
         if not media_files:
             logger.error("No supported media files found in directory")
             sys.exit(1)
-        
-        logger.info(f"Found {len(media_files)} media files")
+
+        # Show summary of what we're about to process
+        click.echo(f"Found {len(media_files)} media files and {len(dives)} dives")
+        if not verbose and not dry_run:
+            click.echo("Processing files...")
         
         # Create matcher
         matcher = InteractiveMatcher(dives)
@@ -131,13 +133,13 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
         photo_timestamps = []  # Track all photo timestamps to determine date range
 
         for media_path in media_files:
-            logger.info(f"Processing: {os.path.basename(media_path)}")
-            
+            logger.debug(f"Processing: {os.path.basename(media_path)}")
+
             try:
                 # Create appropriate processor for the media file
                 processor = MediaProcessor.create_processor(media_path)
                 capture_time = processor.get_capture_time()
-                
+
                 if not capture_time:
                     logger.warning(f"No capture time found for {os.path.basename(media_path)}")
                     skipped_count += 1
@@ -147,17 +149,17 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
                 photo_timestamps.append(capture_time)
 
                 logger.debug(f"Media capture time: {capture_time}")
-                
+
                 # Check for existing GPS
                 existing_gps = processor.get_current_gps()
                 if existing_gps and not dry_run:
                     logger.debug(f"Existing GPS coordinates: {existing_gps}")
-                
+
                 # Find match
                 match = matcher.get_user_confirmed_match(media_path)
 
                 if not match:
-                    logger.info(f"No dive match selected for {os.path.basename(media_path)}")
+                    logger.debug(f"No dive match selected for {os.path.basename(media_path)}")
                     skipped_count += 1
                     continue
 
@@ -184,23 +186,23 @@ WOULD UPDATE: {os.path.basename(media_path)}
                     processed_count += 1
                 else:
                     # Apply GPS coordinates and XMP keywords
-                    logger.info(f"Applying GPS and keywords from '{match.dive.site.name}' to {os.path.basename(media_path)}")
-                    
+                    logger.debug(f"Applying GPS and keywords from '{match.dive.site.name}' to {os.path.basename(media_path)}")
+
                     gps_success = False
                     xmp_success = False
-                    
+
                     # Try to apply GPS coordinates (may fail for some formats)
                     try:
                         gps_success = processor.set_gps_coordinates(
-                            match.dive.site.latitude, 
+                            match.dive.site.latitude,
                             match.dive.site.longitude,
                             dry_run=False
                         )
                         if gps_success:
-                            logger.info("Successfully updated GPS coordinates in media file")
+                            logger.debug("Successfully updated GPS coordinates in media file")
                     except Exception as e:
                         logger.warning(f"Could not update GPS in media file: {e}")
-                    
+
                     # Create XMP sidecar with dive site name as keyword and GPS coordinates
                     # Include GPS in XMP if media GPS writing failed
                     try:
@@ -211,22 +213,16 @@ WOULD UPDATE: {os.path.basename(media_path)}
                             dry_run=False
                         )
                         if xmp_success:
-                            if gps_success:
-                                logger.info("Successfully created XMP sidecar with keywords")
-                            else:
-                                logger.info("Successfully created XMP sidecar with keywords and GPS coordinates")
+                            logger.debug(f"Created XMP sidecar with keywords{' and GPS' if not gps_success else ''}")
                     except Exception as e:
                         logger.error(f"Failed to create XMP sidecar: {e}")
-                    
+
                     # Consider it successful if at least XMP was created
                     if xmp_success:
                         processed_count += 1
-                        if gps_success:
-                            logger.info("GPS coordinates written to media file and XMP sidecar created")
-                        else:
-                            logger.info("GPS coordinates written to XMP sidecar (media format not supported)")
+                        logger.debug(f"Successfully processed {os.path.basename(media_path)}")
                     else:
-                        logger.error("Failed to create XMP sidecar")
+                        logger.error(f"Failed to process {os.path.basename(media_path)}")
                         error_count += 1
                         
             except Exception as e:
