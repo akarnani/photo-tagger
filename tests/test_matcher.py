@@ -32,13 +32,13 @@ class TestDiveMatcher:
         
         return [dive1, dive2]
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_find_matches_within_dive(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_find_matches_within_dive(self, mock_create_processor):
         """Test finding matches for photos taken during dive"""
-        # Mock image processor
+        # Mock media processor
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 9, 20, 0)  # 20 min into first dive
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = DiveMatcher(dives)
@@ -50,13 +50,13 @@ class TestDiveMatcher:
         assert matches[0].dive.number == 1
         assert matches[0].dive.site.name == 'Morning Dive'
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_find_matches_near_dive(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_find_matches_near_dive(self, mock_create_processor):
         """Test finding matches for photos taken near dive time"""
         # Mock image processor - photo taken 1 hour before dive
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 8, 0, 0)  # 1 hour before first dive
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = DiveMatcher(dives)
@@ -67,13 +67,13 @@ class TestDiveMatcher:
         assert matches[0].confidence == 'near_dive'
         assert matches[0].dive.number == 1
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_find_matches_no_match(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_find_matches_no_match(self, mock_create_processor):
         """Test no matches for photos taken far from dive times"""
         # Mock image processor - photo taken days before dive
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 10, 12, 0, 0)  # Days before
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = DiveMatcher(dives)
@@ -82,13 +82,13 @@ class TestDiveMatcher:
         
         assert len(matches) == 0
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_find_matches_no_capture_time(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_find_matches_no_capture_time(self, mock_create_processor):
         """Test handling photos without capture time"""
         # Mock image processor - no capture time available
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = None
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = DiveMatcher(dives)
@@ -97,13 +97,13 @@ class TestDiveMatcher:
         
         assert len(matches) == 0
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_find_matches_multiple_matches(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_find_matches_multiple_matches(self, mock_create_processor):
         """Test multiple potential matches sorted by confidence"""
         # Mock image processor - photo taken between two dives (closer to both)
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 11, 0, 0)  # Between dives, 2h from first, 3h from second
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = DiveMatcher(dives)
@@ -116,12 +116,12 @@ class TestDiveMatcher:
         # Only the first dive (9:00) is within 2 hours of 11:00
         assert matches[0].dive.number == 1
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_get_best_match(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_get_best_match(self, mock_create_processor):
         """Test getting the single best match"""
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 9, 20, 0)
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = DiveMatcher(dives)
@@ -177,12 +177,12 @@ class TestInteractiveMatcher:
         
         return [dive1, dive2]
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_single_match_no_prompt(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_single_match_no_prompt(self, mock_create_processor):
         """Test that single matches don't prompt user"""
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 9, 20, 0)  # Only matches first dive
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = InteractiveMatcher(dives)
@@ -192,13 +192,13 @@ class TestInteractiveMatcher:
         assert match is not None
         assert match.dive.number == 1
     
-    @patch('photo_tagger.matcher.ImageProcessor')
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
     @patch('builtins.input', return_value='1')
-    def test_multiple_matches_user_selection(self, mock_input, mock_processor_class):
+    def test_multiple_matches_user_selection(self, mock_input, mock_create_processor):
         """Test user selection when multiple matches exist"""
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 10, 15, 0)  # Between dives, within 2h of both
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = InteractiveMatcher(dives)
@@ -208,13 +208,13 @@ class TestInteractiveMatcher:
         assert match is not None
         assert match.dive.number == 1  # User selected option 1, which is dive 1 (first in sorted order)
     
-    @patch('photo_tagger.matcher.ImageProcessor')
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
     @patch('builtins.input', return_value='0')
-    def test_multiple_matches_user_skip(self, mock_input, mock_processor_class):
+    def test_multiple_matches_user_skip(self, mock_input, mock_create_processor):
         """Test user choosing to skip when multiple matches exist"""
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 10, 15, 0)  # Between both dives, within 2h of both
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = InteractiveMatcher(dives)
@@ -223,13 +223,13 @@ class TestInteractiveMatcher:
         
         assert match is None
     
-    @patch('photo_tagger.matcher.ImageProcessor')
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
     @patch('builtins.input', side_effect=['invalid', '2'])
-    def test_multiple_matches_invalid_then_valid_input(self, mock_input, mock_processor_class):
+    def test_multiple_matches_invalid_then_valid_input(self, mock_input, mock_create_processor):
         """Test handling of invalid input followed by valid selection"""
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 10, 15, 0)  # Between both dives, within 2h of both
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         dives = self.create_test_dives()
         matcher = InteractiveMatcher(dives)
@@ -239,12 +239,12 @@ class TestInteractiveMatcher:
         assert match is not None
         assert match.dive.number == 2  # User selected option 2 (dive 2 is second in sorted order)
     
-    @patch('photo_tagger.matcher.ImageProcessor')
-    def test_within_dive_prioritized_over_near_dive(self, mock_processor_class):
+    @patch('photo_tagger.matcher.MediaProcessor.create_processor')
+    def test_within_dive_prioritized_over_near_dive(self, mock_create_processor):
         """Test that within_dive matches are prioritized over near_dive without prompting"""
         mock_processor = MagicMock()
         mock_processor.get_capture_time.return_value = datetime(2024, 1, 15, 9, 20, 0)  # During first dive
-        mock_processor_class.return_value = mock_processor
+        mock_create_processor.return_value = mock_processor
         
         # Create dives where photo is within first dive but near second dive
         site1 = DiveSite(uuid='site1', name='Within Dive Site', latitude=21.0, longitude=-72.0)

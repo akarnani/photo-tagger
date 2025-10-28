@@ -5,27 +5,27 @@ from typing import List, Optional
 from dataclasses import dataclass
 
 from .subsurface_parser import Dive
-from .image_processor import ImageProcessor
+from .media_processor import MediaProcessor
 
 
 @dataclass
 class Match:
-    """Represents a match between a photo and dive"""
-    image_path: str
+    """Represents a match between a media file (photo/video) and dive"""
+    image_path: str  # Path to media file (kept as image_path for backward compatibility)
     dive: Dive
-    photo_time: datetime
+    photo_time: datetime  # Capture time of media file
     confidence: str  # "exact", "within_dive", "uncertain"
 
 
 class DiveMatcher:
-    """Matches photos to dives based on capture time"""
-    
+    """Matches media files (photos/videos) to dives based on capture time"""
+
     def __init__(self, dives: List[Dive]):
         self.dives = sorted(dives, key=lambda d: d.time)
-    
+
     def find_matches(self, image_path: str) -> List[Match]:
-        """Find potential dive matches for a photo based on capture time"""
-        processor = ImageProcessor(image_path)
+        """Find potential dive matches for a media file based on capture time"""
+        processor = MediaProcessor.create_processor(image_path)
         photo_time = processor.get_capture_time()
         
         if not photo_time:
@@ -76,7 +76,7 @@ class DiveMatcher:
         return priorities.get(confidence, 4)
     
     def get_best_match(self, image_path: str) -> Optional[Match]:
-        """Get the best single match for a photo"""
+        """Get the best single match for a media file"""
         matches = self.find_matches(image_path)
         return matches[0] if matches else None
     
