@@ -23,6 +23,12 @@ class Dive:
     time: datetime
     duration_minutes: int
     site: DiveSite
+    tags: List[str] = None
+
+    def __post_init__(self):
+        """Initialize tags to empty list if None"""
+        if self.tags is None:
+            self.tags = []
 
 
 class SubsurfaceParser:
@@ -120,14 +126,18 @@ class SubsurfaceParser:
             date_str = dive_elem.get('date', '')
             time_str = dive_elem.get('time', '')
             duration_str = dive_elem.get('duration', '0:00')
-            
+            tags_str = dive_elem.get('tags', '')
+
             # Parse date and time
             dive_datetime = self._parse_datetime(date_str, time_str)
             if not dive_datetime:
                 return None
-            
+
             # Parse duration - handle "MM:SS min" format from Subsurface
             duration_minutes = self._parse_duration(duration_str)
+
+            # Parse tags (comma-separated string)
+            tags = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
             
             # Find dive site
             site_uuid = dive_elem.get('divesiteid', '').strip()
@@ -142,7 +152,8 @@ class SubsurfaceParser:
                 date=dive_datetime,
                 time=dive_datetime,
                 duration_minutes=duration_minutes,
-                site=site
+                site=site,
+                tags=tags
             )
             
             return dive

@@ -15,16 +15,61 @@ def setup_logging(verbose: bool) -> logging.Logger:
     """Setup logging configuration"""
     logger = logging.getLogger('photo_tagger')
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
-    
+
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
-        '%(levelname)s: %(message)s' if not verbose 
+        '%(levelname)s: %(message)s' if not verbose
         else '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    
+
     return logger
+
+
+def _check_camera_tag_warnings(dives, matched_dives, photo_timestamps):
+    """Check for camera tag mismatches and print warnings
+
+    Args:
+        dives: List of all dives
+        matched_dives: Set of dive numbers that had photos matched
+        photo_timestamps: List of all photo capture timestamps
+    """
+    if not photo_timestamps:
+        return
+
+    # Determine photo date range
+    oldest_photo = min(photo_timestamps)
+    newest_photo = max(photo_timestamps)
+
+    # Find dives within the photo date range
+    dives_in_range = [d for d in dives if oldest_photo <= d.time <= newest_photo]
+
+    # Find dives with matches but no "camera" tag
+    untagged_with_photos = []
+    for dive in dives_in_range:
+        if dive.number in matched_dives and 'camera' not in dive.tags:
+            untagged_with_photos.append(dive)
+
+    # Find dives with "camera" tag but no matches
+    tagged_without_photos = []
+    for dive in dives_in_range:
+        if 'camera' in dive.tags and dive.number not in matched_dives:
+            tagged_without_photos.append(dive)
+
+    # Print warnings if any issues found
+    if untagged_with_photos or tagged_without_photos:
+        click.echo("\n⚠️  CAMERA TAG WARNINGS:")
+
+        if untagged_with_photos:
+            click.echo("\n  Dives with matched photos but missing 'camera' tag:")
+            for dive in untagged_with_photos:
+                click.echo(f"    • Dive #{dive.number} - {dive.site.name} ({dive.time.strftime('%Y-%m-%d')})")
+
+        if tagged_without_photos:
+            click.echo("\n  Dives tagged with 'camera' but no matching photos:")
+            for dive in tagged_without_photos:
+                click.echo(f"    • Dive #{dive.number} - {dive.site.name} ({dive.time.strftime('%Y-%m-%d')})")
 
 
 @click.command()
@@ -82,7 +127,9 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
         processed_count = 0
         skipped_count = 0
         error_count = 0
-        
+        matched_dives = set()  # Track which dives had photos matched
+        photo_timestamps = []  # Track all photo timestamps to determine date range
+
         for media_path in media_files:
             logger.info(f"Processing: {os.path.basename(media_path)}")
             
@@ -95,7 +142,10 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
                     logger.warning(f"No capture time found for {os.path.basename(media_path)}")
                     skipped_count += 1
                     continue
-                
+
+                # Track photo timestamp for date range analysis
+                photo_timestamps.append(capture_time)
+
                 logger.debug(f"Media capture time: {capture_time}")
                 
                 # Check for existing GPS
@@ -105,12 +155,15 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
                 
                 # Find match
                 match = matcher.get_user_confirmed_match(media_path)
-                
+
                 if not match:
                     logger.info(f"No dive match selected for {os.path.basename(media_path)}")
                     skipped_count += 1
                     continue
-                
+
+                # Track that this dive had a photo matched to it
+                matched_dives.add(match.dive.number)
+
                 # Check if dive site has GPS coordinates
                 if not (match.dive.site.latitude and match.dive.site.longitude):
                     logger.warning(f"Dive site '{match.dive.site.name}' has no GPS coordinates")
@@ -188,7 +241,11 @@ WOULD UPDATE: {os.path.basename(media_path)}
         click.echo(f"  Skipped: {skipped_count}")
         if error_count > 0:
             click.echo(f"  Errors: {error_count}")
-        
+
+        # Camera tag analysis
+        if photo_timestamps:
+            _check_camera_tag_warnings(dives, matched_dives, photo_timestamps)
+
         if error_count > 0:
             sys.exit(1)
             
