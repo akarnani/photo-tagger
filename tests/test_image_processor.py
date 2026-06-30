@@ -252,6 +252,13 @@ class TestImageProcessor:
         finally:
             os.unlink(temp_file.name)
 
+    def test_exiv2_warnings_are_suppressed(self):
+        """Importing the module mutes exiv2 stderr noise (e.g. the error-level
+        ImageSourceData 'invalid size' message on layered TIFFs)."""
+        import exiv2
+
+        assert exiv2.LogMsg.level() == exiv2.LogMsg.Level.mute
+
     def test_create_xmp_content_uses_real_newlines(self):
         """Generated XMP must use real newlines, not literal backslash-n.
 

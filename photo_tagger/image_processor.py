@@ -11,6 +11,15 @@ from typing import Optional, Tuple, List
 from lxml import etree
 
 
+# exiv2 logs to stderr for tags it can't parse, e.g. the large Photoshop
+# ImageSourceData tag (0x935c) in layered TIFFs ("Directory Image, entry 0x935c
+# has invalid size ...; skipping entry."). These are harmless: the offending tag
+# is skipped and the rest of the metadata still reads. The message is emitted at
+# error level, so muting is the only way to silence it; this is safe because the
+# code detects real failures via exceptions (caught below), not these log lines.
+exiv2.LogMsg.setLevel(exiv2.LogMsg.Level.mute)
+
+
 class ImageProcessor:
     """Handles reading and writing EXIF metadata in images"""
     
