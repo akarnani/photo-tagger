@@ -213,6 +213,29 @@ class TestImageProcessor:
         finally:
             os.unlink(temp_file.name)
 
+    @patch('photo_tagger.image_processor.subprocess.run')
+    def test_set_gps_coordinates_uses_session_when_provided(self, mock_run):
+        """When a shared ExifToolSession is provided, it is used instead of
+        spawning a one-shot exiftool process."""
+        from unittest.mock import MagicMock
+
+        session = MagicMock()
+        session.set_gps.return_value = True
+        temp_file = tempfile.NamedTemporaryFile(suffix='.arw', delete=False)
+        temp_file.close()
+
+        try:
+            processor = ImageProcessor(temp_file.name)
+            result = processor.set_gps_coordinates(
+                21.676944, -72.469722, dry_run=False, exiftool_session=session
+            )
+
+            assert result is True
+            session.set_gps.assert_called_once_with(temp_file.name, 21.676944, -72.469722)
+            mock_run.assert_not_called()  # no per-file process spawned
+        finally:
+            os.unlink(temp_file.name)
+
     @pytest.mark.parametrize('ext', ['.arw', '.tif', '.tiff'])
     @patch('photo_tagger.image_processor.shutil.which', return_value=None)
     def test_set_gps_coordinates_without_exiftool_falls_back(self, mock_which, ext):

@@ -2,12 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name="photo-tagger",
-    version="0.3.2",
+    version="0.4.0",
     packages=find_packages(),
     install_requires=[
         "exifread>=3.0.0",
         "piexif>=1.1.3",
         "exiv2>=0.17.5",
+        "PyExifTool>=0.5.6",
         "xmltodict>=0.13.0",
         "python-dateutil>=2.8.2",
         "click>=8.1.7",

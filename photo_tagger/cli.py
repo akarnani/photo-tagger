@@ -11,6 +11,7 @@ from . import __version__
 from .subsurface_parser import SubsurfaceParser
 from .media_processor import MediaProcessor
 from .matcher import InteractiveMatcher
+from .exiftool_session import ExifToolSession
 
 
 def setup_logging(verbose: bool) -> logging.Logger:
@@ -167,7 +168,10 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
             item_show_func=lambda x: os.path.basename(x) if x else ''
         ) if show_progress else nullcontext(media_files)
 
-        with progress_context as media_iterator:
+        # Keep a single exiftool process alive for the whole run so the
+        # exiftool-backed formats (ARW/TIFF/videos) don't pay startup per file.
+        exiftool_ctx = ExifToolSession() if not dry_run else nullcontext()
+        with exiftool_ctx as exiftool_session, progress_context as media_iterator:
             for media_path in media_iterator:
                 logger.debug(f"Processing: {os.path.basename(media_path)}")
 
@@ -234,7 +238,8 @@ WOULD UPDATE: {os.path.basename(media_path)}
                             gps_success = processor.set_gps_coordinates(
                                 match.dive.site.latitude,
                                 match.dive.site.longitude,
-                                dry_run=False
+                                dry_run=False,
+                                exiftool_session=exiftool_session
                             )
                             if gps_success:
                                 logger.debug("Successfully updated GPS coordinates in media file")

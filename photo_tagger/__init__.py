@@ -1,3 +1,3 @@
 """Photo Tagger - Apply dive site GPS data to photos and videos"""
 
-__version__ = "0.3.2"
+__version__ = "0.4.0"

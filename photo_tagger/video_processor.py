@@ -85,11 +85,16 @@ class VideoProcessor:
         except Exception:
             return None
     
-    def set_gps_coordinates(self, latitude: float, longitude: float, dry_run: bool = False) -> bool:
+    def set_gps_coordinates(self, latitude: float, longitude: float, dry_run: bool = False,
+                            exiftool_session=None) -> bool:
         """Set GPS coordinates in video metadata using ExifTool"""
         if dry_run:
             return True
-        
+
+        # Reuse a shared persistent exiftool process when one is provided.
+        if exiftool_session is not None:
+            return exiftool_session.set_gps(self.video_path, latitude, longitude)
+
         try:
             # Prepare ExifTool command to set GPS coordinates
             lat_ref = 'N' if latitude >= 0 else 'S'

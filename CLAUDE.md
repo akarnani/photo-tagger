@@ -87,6 +87,7 @@ The `samples/` directory contains test files:
 Core libraries:
 - `exifread==3.0.0` - Reading EXIF data from images
 - `piexif==1.1.3` - Writing EXIF data to images  
+- `PyExifTool==0.5.6` - Wraps the external `exiftool` binary in a persistent (`-stay_open`) process for safe ARW/TIFF/video writes; one process is reused for the whole run (see `exiftool_session.py`)
 - `xmltodict==0.13.0` - XML parsing for Subsurface files
 - `python-dateutil==2.8.2` - Date/time parsing
 - `click==8.1.7` - Command-line interface

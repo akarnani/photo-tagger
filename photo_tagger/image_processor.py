@@ -174,8 +174,14 @@ class ImageProcessor:
         except Exception:
             return None
     
-    def set_gps_coordinates(self, latitude: float, longitude: float, dry_run: bool = False) -> bool:
-        """Set GPS coordinates in image EXIF data"""
+    def set_gps_coordinates(self, latitude: float, longitude: float, dry_run: bool = False,
+                            exiftool_session=None) -> bool:
+        """Set GPS coordinates in image EXIF data.
+
+        exiftool_session: an optional shared ExifToolSession. When provided, the
+        exiftool-only formats reuse one persistent process instead of spawning a
+        fresh exiftool per file. When None, a one-shot exiftool call is used.
+        """
         if dry_run:
             return True
 
@@ -184,6 +190,8 @@ class ImageProcessor:
         # False so the caller routes GPS into an XMP sidecar instead.
         ext = os.path.splitext(self.image_path)[1].lower()
         if ext in self.EXIFTOOL_EMBED_EXTENSIONS:
+            if exiftool_session is not None:
+                return exiftool_session.set_gps(self.image_path, latitude, longitude)
             return self._set_gps_coordinates_exiftool(latitude, longitude)
 
         # First try exiv2 (best for RAW formats including CR3)
