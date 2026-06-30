@@ -16,14 +16,17 @@ class ImageProcessor:
     
     SUPPORTED_EXTENSIONS = {'.cr3', '.cr2', '.jpg', '.jpeg', '.tiff', '.tif', '.arw'}
 
-    # Formats that must be written with exiftool rather than exiv2/piexif.
-    # exiv2 can write GPS into Sony ARW files but botches the compressed-RAW
-    # container rewrite: it leaves an orphaned ~60MB duplicate of the raw strip
-    # and corrupts the Sony MakerNote (SR2Private), all without raising an error.
-    # exiftool writes GPS into the compressed ARW in-place with no bloat and a
-    # fully preserved MakerNote. If exiftool is not installed, set_gps_coordinates
-    # reports failure so the caller falls back to writing GPS into an XMP sidecar.
-    EXIFTOOL_EMBED_EXTENSIONS = {'.arw'}
+    # Formats that must be written with exiftool rather than exiv2/piexif,
+    # because the exiv2/piexif rewrite drops data they don't understand:
+    #   - Sony ARW: exiv2 leaves an orphaned ~60MB duplicate of the raw strip
+    #     and corrupts the Sony MakerNote (SR2Private), without raising an error.
+    #   - TIFF: a layered Photoshop export keeps its editable layers in the
+    #     ImageSourceData tag (0x935c); exiv2/piexif rewrite the file without it,
+    #     silently discarding the layers (e.g. 1.06GB -> 265MB).
+    # exiftool writes GPS into these in-place with the full structure preserved.
+    # If exiftool is not installed, set_gps_coordinates reports failure so the
+    # caller falls back to writing GPS into an XMP sidecar.
+    EXIFTOOL_EMBED_EXTENSIONS = {'.arw', '.tif', '.tiff'}
     
     def __init__(self, image_path: str):
         self.image_path = image_path

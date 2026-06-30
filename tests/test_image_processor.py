@@ -185,16 +185,18 @@ class TestImageProcessor:
         finally:
             os.unlink(temp_file.name)
 
+    @pytest.mark.parametrize('ext', ['.arw', '.tif', '.tiff'])
     @patch('photo_tagger.image_processor.subprocess.run')
     @patch('photo_tagger.image_processor.shutil.which', return_value='/usr/bin/exiftool')
-    def test_set_gps_coordinates_arw_uses_exiftool(self, mock_which, mock_run):
-        """ARW must be embedded via exiftool, not exiv2/piexif.
+    def test_set_gps_coordinates_uses_exiftool(self, mock_which, mock_run, ext):
+        """ARW/TIFF must be embedded via exiftool, not exiv2/piexif.
 
-        exiv2 bloats/corrupts compressed ARW, so set_gps_coordinates routes ARW
+        exiv2/piexif corrupt these formats (ARW: orphaned strip + MakerNote;
+        TIFF: dropped Photoshop layers), so set_gps_coordinates routes them
         through exiftool and returns its success.
         """
         mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0)
-        temp_file = tempfile.NamedTemporaryFile(suffix='.arw', delete=False)
+        temp_file = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
         temp_file.close()
 
         try:
@@ -202,7 +204,7 @@ class TestImageProcessor:
             result = processor.set_gps_coordinates(21.676944, -72.469722, dry_run=False)
 
             assert result is True
-            # exiftool was invoked with GPS args for the ARW file
+            # exiftool was invoked with GPS args for the file
             mock_run.assert_called_once()
             argv = mock_run.call_args[0][0]
             assert argv[0] == '/usr/bin/exiftool'
@@ -211,11 +213,12 @@ class TestImageProcessor:
         finally:
             os.unlink(temp_file.name)
 
+    @pytest.mark.parametrize('ext', ['.arw', '.tif', '.tiff'])
     @patch('photo_tagger.image_processor.shutil.which', return_value=None)
-    def test_set_gps_coordinates_arw_without_exiftool_falls_back(self, mock_which):
-        """When exiftool is missing, ARW GPS write returns False so the caller
+    def test_set_gps_coordinates_without_exiftool_falls_back(self, mock_which, ext):
+        """When exiftool is missing, GPS write returns False so the caller
         falls back to an XMP sidecar."""
-        temp_file = tempfile.NamedTemporaryFile(suffix='.arw', delete=False)
+        temp_file = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
         temp_file.close()
 
         try:

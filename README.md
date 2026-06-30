@@ -10,7 +10,7 @@ A command-line tool that applies GPS coordinates from Subsurface diving logs to 
 - **Dry-run mode**: Preview changes without modifying files
 - **Verbose logging**: Detailed output for troubleshooting
 - **Idempotent**: Safe to run multiple times as you add new photos
-- **Multiple file format support**: CR3, CR2, ARW, JPG, JPEG, TIFF, TIF (Sony ARW is geotagged in-place via `exiftool` when installed, otherwise via an XMP sidecar)
+- **Multiple file format support**: CR3, CR2, ARW, JPG, JPEG, TIFF, TIF (Sony ARW and TIFF are geotagged in-place via `exiftool` when installed, otherwise via an XMP sidecar, to avoid corrupting compressed RAW or layered Photoshop files)
 
 ## Installation
 

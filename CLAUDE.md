@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Photo-tagger is a command-line tool that applies GPS coordinates from Subsurface diving logs to RAW photo EXIF data, automatically matching photos to dive sites based on capture time. It supports CR3, CR2, ARW, JPG, JPEG, TIFF, and TIF formats. exiv2 cannot safely write GPS into Sony's compressed ARW files (it orphans a ~60MB duplicate of the raw strip and corrupts the MakerNote), so ARW GPS is embedded using the external `exiftool` binary when it is installed, and falls back to an XMP sidecar when it is not.
+Photo-tagger is a command-line tool that applies GPS coordinates from Subsurface diving logs to RAW photo EXIF data, automatically matching photos to dive sites based on capture time. It supports CR3, CR2, ARW, JPG, JPEG, TIFF, and TIF formats. exiv2/piexif cannot safely write GPS into Sony's compressed ARW files (they orphan a ~60MB duplicate of the raw strip and corrupt the MakerNote) or into layered Photoshop TIFFs (they discard the editable layers stored in the ImageSourceData tag). So ARW and TIFF GPS is embedded using the external `exiftool` binary when it is installed, and falls back to an XMP sidecar when it is not.
 
 The tool supports both legacy Subsurface file formats (with dives directly under the root) and modern trip-organized formats (with dives organized within trip elements).
 
