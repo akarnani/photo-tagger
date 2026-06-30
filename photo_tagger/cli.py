@@ -7,6 +7,7 @@ from contextlib import nullcontext
 
 import click
 
+from . import __version__
 from .subsurface_parser import SubsurfaceParser
 from .media_processor import MediaProcessor
 from .matcher import InteractiveMatcher
@@ -97,7 +98,8 @@ def _check_camera_tag_warnings(dives, matched_dives, photo_timestamps):
 
 
 @click.command()
-@click.option('--subsurface-file', '-s', required=True, 
+@click.version_option(version=__version__, prog_name='photo-tagger')
+@click.option('--subsurface-file', '-s', required=True,
               help='Path to Subsurface diving log file (.ssrf)')
 @click.option('--images-dir', '-i', required=True,
               help='Directory containing media files (images and videos)')
