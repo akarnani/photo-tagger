@@ -1,6 +1,8 @@
 """Image processing and EXIF metadata handling"""
 
 import os
+import shutil
+import subprocess
 import piexif
 import exifread
 import exiv2
@@ -12,7 +14,16 @@ from lxml import etree
 class ImageProcessor:
     """Handles reading and writing EXIF metadata in images"""
     
-    SUPPORTED_EXTENSIONS = {'.cr3', '.cr2', '.jpg', '.jpeg', '.tiff', '.tif'}
+    SUPPORTED_EXTENSIONS = {'.cr3', '.cr2', '.jpg', '.jpeg', '.tiff', '.tif', '.arw'}
+
+    # Formats that must be written with exiftool rather than exiv2/piexif.
+    # exiv2 can write GPS into Sony ARW files but botches the compressed-RAW
+    # container rewrite: it leaves an orphaned ~60MB duplicate of the raw strip
+    # and corrupts the Sony MakerNote (SR2Private), all without raising an error.
+    # exiftool writes GPS into the compressed ARW in-place with no bloat and a
+    # fully preserved MakerNote. If exiftool is not installed, set_gps_coordinates
+    # reports failure so the caller falls back to writing GPS into an XMP sidecar.
+    EXIFTOOL_EMBED_EXTENSIONS = {'.arw'}
     
     def __init__(self, image_path: str):
         self.image_path = image_path
@@ -164,7 +175,14 @@ class ImageProcessor:
         """Set GPS coordinates in image EXIF data"""
         if dry_run:
             return True
-        
+
+        # Formats that exiv2/piexif can't write safely (e.g. Sony ARW) are
+        # handled by exiftool. If exiftool isn't available or fails, return
+        # False so the caller routes GPS into an XMP sidecar instead.
+        ext = os.path.splitext(self.image_path)[1].lower()
+        if ext in self.EXIFTOOL_EMBED_EXTENSIONS:
+            return self._set_gps_coordinates_exiftool(latitude, longitude)
+
         # First try exiv2 (best for RAW formats including CR3)
         if self._set_gps_coordinates_exiv2(latitude, longitude):
             return True
@@ -204,6 +222,38 @@ class ImageProcessor:
         except Exception:
             return False
     
+    def _set_gps_coordinates_exiftool(self, latitude: float, longitude: float) -> bool:
+        """Set GPS coordinates using the exiftool binary (safe for compressed RAW).
+
+        Returns False if exiftool is not installed or the write fails, so the
+        caller can fall back to writing GPS into an XMP sidecar.
+        """
+        exiftool = shutil.which('exiftool')
+        if not exiftool:
+            return False
+
+        lat_ref = 'N' if latitude >= 0 else 'S'
+        lon_ref = 'E' if longitude >= 0 else 'W'
+
+        try:
+            result = subprocess.run(
+                [
+                    exiftool,
+                    '-overwrite_original',
+                    f'-GPSLatitude={abs(latitude)}',
+                    f'-GPSLatitudeRef={lat_ref}',
+                    f'-GPSLongitude={abs(longitude)}',
+                    f'-GPSLongitudeRef={lon_ref}',
+                    self.image_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
     def _set_gps_coordinates_piexif(self, latitude: float, longitude: float) -> bool:
         """Set GPS coordinates using piexif library (for JPEG, TIFF)"""
         try:
@@ -357,14 +407,14 @@ class ImageProcessor:
     def _create_xmp_content(self, keywords: List[str], latitude: Optional[float] = None, longitude: Optional[float] = None) -> str:
         """Create XMP content with keywords"""
         # Create keyword list XML
-        keyword_items = '\\n'.join([f'     <rdf:li>{keyword}</rdf:li>' for keyword in keywords])
+        keyword_items = '\n'.join([f'     <rdf:li>{keyword}</rdf:li>' for keyword in keywords])
         
         # Get capture time if available for DateTimeOriginal
         capture_time = self.get_capture_time()
         datetime_original = ''
         if capture_time:
             # Format as ISO 8601 with timezone (following the sample)
-            datetime_original = f'   <exif:DateTimeOriginal>{capture_time.strftime("%Y-%m-%dT%H:%M:%S.00Z")}</exif:DateTimeOriginal>\\n'
+            datetime_original = f'   <exif:DateTimeOriginal>{capture_time.strftime("%Y-%m-%dT%H:%M:%S.00Z")}</exif:DateTimeOriginal>\n'
         
         # Add GPS information if provided
         gps_data = ''

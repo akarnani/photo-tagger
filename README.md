@@ -10,7 +10,7 @@ A command-line tool that applies GPS coordinates from Subsurface diving logs to 
 - **Dry-run mode**: Preview changes without modifying files
 - **Verbose logging**: Detailed output for troubleshooting
 - **Idempotent**: Safe to run multiple times as you add new photos
-- **Multiple file format support**: CR3, CR2, JPG, JPEG, TIFF, TIF
+- **Multiple file format support**: CR3, CR2, ARW, JPG, JPEG, TIFF, TIF (Sony ARW is geotagged in-place via `exiftool` when installed, otherwise via an XMP sidecar)
 
 ## Installation
 
@@ -29,6 +29,16 @@ A command-line tool that applies GPS coordinates from Subsurface diving logs to 
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
+   ```
+
+4. (Optional) Install [`exiftool`](https://exiftool.org/) to embed GPS directly
+   into Sony ARW files. Without it, ARW photos are still geotagged via an XMP
+   sidecar.
+   ```bash
+   # macOS
+   brew install exiftool
+   # Debian/Ubuntu
+   sudo apt install libimage-exiftool-perl
    ```
 
 ## Usage

@@ -3,6 +3,7 @@
 import pytest
 import tempfile
 import os
+import subprocess
 from datetime import datetime
 from unittest.mock import patch
 
@@ -29,7 +30,7 @@ class TestImageProcessor:
     
     def test_supported_extensions(self):
         """Test that supported extensions are recognized"""
-        supported_exts = ['.cr3', '.cr2', '.jpg', '.jpeg', '.tiff', '.tif']
+        supported_exts = ['.cr3', '.cr2', '.jpg', '.jpeg', '.tiff', '.tif', '.arw']
         
         for ext in supported_exts:
             temp_file = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
@@ -183,7 +184,69 @@ class TestImageProcessor:
             mock_insert.assert_not_called()
         finally:
             os.unlink(temp_file.name)
-    
+
+    @patch('photo_tagger.image_processor.subprocess.run')
+    @patch('photo_tagger.image_processor.shutil.which', return_value='/usr/bin/exiftool')
+    def test_set_gps_coordinates_arw_uses_exiftool(self, mock_which, mock_run):
+        """ARW must be embedded via exiftool, not exiv2/piexif.
+
+        exiv2 bloats/corrupts compressed ARW, so set_gps_coordinates routes ARW
+        through exiftool and returns its success.
+        """
+        mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0)
+        temp_file = tempfile.NamedTemporaryFile(suffix='.arw', delete=False)
+        temp_file.close()
+
+        try:
+            processor = ImageProcessor(temp_file.name)
+            result = processor.set_gps_coordinates(21.676944, -72.469722, dry_run=False)
+
+            assert result is True
+            # exiftool was invoked with GPS args for the ARW file
+            mock_run.assert_called_once()
+            argv = mock_run.call_args[0][0]
+            assert argv[0] == '/usr/bin/exiftool'
+            assert any(a.startswith('-GPSLatitude=') for a in argv)
+            assert temp_file.name in argv
+        finally:
+            os.unlink(temp_file.name)
+
+    @patch('photo_tagger.image_processor.shutil.which', return_value=None)
+    def test_set_gps_coordinates_arw_without_exiftool_falls_back(self, mock_which):
+        """When exiftool is missing, ARW GPS write returns False so the caller
+        falls back to an XMP sidecar."""
+        temp_file = tempfile.NamedTemporaryFile(suffix='.arw', delete=False)
+        temp_file.close()
+
+        try:
+            processor = ImageProcessor(temp_file.name)
+            result = processor.set_gps_coordinates(21.676944, -72.469722, dry_run=False)
+
+            assert result is False
+        finally:
+            os.unlink(temp_file.name)
+
+    def test_create_xmp_content_uses_real_newlines(self):
+        """Generated XMP must use real newlines, not literal backslash-n.
+
+        Regression: the template previously emitted literal '\\n' text into new
+        sidecars, producing malformed output and unseparated keywords.
+        """
+        temp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+        temp_file.close()
+
+        try:
+            processor = ImageProcessor(temp_file.name)
+            content = processor._create_xmp_content(
+                ['Reef A', 'Reef B'], latitude=20.5, longitude=-86.95
+            )
+
+            assert '\\n' not in content
+            # multiple keywords are separated onto their own lines
+            assert '<rdf:li>Reef A</rdf:li>\n' in content
+        finally:
+            os.unlink(temp_file.name)
+
     def test_find_images(self):
         """Test finding images in directory"""
         with tempfile.TemporaryDirectory() as temp_dir:

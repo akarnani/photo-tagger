@@ -45,6 +45,7 @@ class TestMediaProcessor:
         assert '.jpeg' in extensions
         assert '.cr3' in extensions
         assert '.cr2' in extensions
+        assert '.arw' in extensions
 
         # Check for video formats
         assert '.mp4' in extensions
