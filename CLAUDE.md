@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Photo-tagger is a command-line tool that applies GPS coordinates from Subsurface diving logs to RAW photo EXIF data, automatically matching photos to dive sites based on capture time. It supports CR3, CR2, ARW, JPG, JPEG, TIFF, and TIF formats. exiv2/piexif cannot safely write GPS into Sony's compressed ARW files (they orphan a ~60MB duplicate of the raw strip and corrupt the MakerNote) or into layered Photoshop TIFFs (they discard the editable layers stored in the ImageSourceData tag). So ARW and TIFF GPS is embedded using the external `exiftool` binary when it is installed, and falls back to an XMP sidecar when it is not.
+Photo-tagger is a command-line tool that applies GPS coordinates from Subsurface diving logs (or Submersion databases) to RAW photo EXIF data, automatically matching photos to dive sites based on capture time. It supports CR3, CR2, ARW, JPG, JPEG, TIFF, and TIF formats. exiv2/piexif cannot safely write GPS into Sony's compressed ARW files (they orphan a ~60MB duplicate of the raw strip and corrupt the MakerNote) or into layered Photoshop TIFFs (they discard the editable layers stored in the ImageSourceData tag). So ARW and TIFF GPS is embedded using the external `exiftool` binary when it is installed, and falls back to an XMP sidecar when it is not.
 
 The tool supports both legacy Subsurface file formats (with dives directly under the root) and modern trip-organized formats (with dives organized within trip elements).
 
@@ -61,6 +61,7 @@ python -m photo_tagger.cli -s path/to/divelog.ssrf -i path/to/images/ --verbose
 The application follows a modular design with clear separation of concerns:
 
 - **`subsurface_parser.py`**: Parses Subsurface XML files (.ssrf) to extract dive sites, GPS coordinates, and timing data. Supports both legacy format (dives under root) and modern trip-organized format (dives within `<trip>` elements)
+- **`submersion_parser.py`**: Reads the SQLite database (`submersion.db`) of the Submersion dive log app into the same `Dive`/`DiveSite` classes. Opens it read-only (not immutable, so pending `-wal` changes are seen). Times are epoch milliseconds whose UTC components are the dive computer's wall clock, decoded to naive datetimes. Start is `entry_time` falling back to `dive_date_time`; duration is `runtime` (seconds), then `exit_time - entry_time`, then `bottom_time`. Planned dives (`is_planned`) are skipped. `cli.py` selects it when the `-s` file has the SQLite header or a `.db` extension
 - **`image_processor.py`**: Handles EXIF metadata reading/writing using exifread and piexif libraries
 - **`matcher.py`**: Implements time-based matching logic between photos and dives, with interactive user selection for ambiguous cases
 - **`cli.py`**: Command-line interface using Click framework

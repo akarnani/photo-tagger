@@ -1,9 +1,10 @@
 # Photo Tagger
 
-A command-line tool that applies GPS coordinates from Subsurface diving logs to RAW photo EXIF data, automatically matching photos to dive sites based on capture time.
+A command-line tool that applies GPS coordinates from Subsurface or Submersion diving logs to RAW photo EXIF data, automatically matching photos to dive sites based on capture time.
 
 ## Features
 
+- **Subsurface and Submersion logs**: Reads Subsurface `.ssrf` files or a Submersion `submersion.db` database
 - **Automatic time-based matching**: Matches photos to dives based on capture time
 - **Interactive selection**: Prompts user when multiple dives match a photo's timestamp
 - **GPS coordinate embedding**: Writes dive site GPS data to photo EXIF metadata
@@ -48,6 +49,13 @@ A command-line tool that applies GPS coordinates from Subsurface diving logs to 
 python -m photo_tagger.cli -s path/to/divelog.ssrf -i path/to/images/
 ```
 
+### With a Submersion Database
+```bash
+python -m photo_tagger.cli -s path/to/submersion.db -i path/to/images/
+```
+
+The database is opened read-only, so it is safe to point at Submersion's live database. If you copy it elsewhere, copy the `submersion.db-wal` and `submersion.db-shm` files with it (or quit Submersion first), since recent changes may only be in the `-wal` file. Submersion's optional database encryption must be turned off. Planned dives are ignored.
+
 ### With Dry Run (Preview Changes)
 ```bash
 python -m photo_tagger.cli -s path/to/divelog.ssrf -i path/to/images/ --dry-run
@@ -60,14 +68,14 @@ python -m photo_tagger.cli -s path/to/divelog.ssrf -i path/to/images/ --verbose
 
 ### Command Line Options
 
-- `-s, --subsurface-file`: Path to Subsurface diving log file (.ssrf) [required]
+- `-s, --dive-log, --subsurface-file`: Path to a Subsurface diving log file (.ssrf) or Submersion database (submersion.db) [required]
 - `-i, --images-dir`: Directory containing RAW image files [required]
 - `-v, --verbose`: Enable verbose logging
 - `-n, --dry-run`: Show what would be done without making changes
 
 ## How It Works
 
-1. **Parse Diving Log**: Extracts dive sites and GPS coordinates from your Subsurface file
+1. **Parse Diving Log**: Extracts dive sites and GPS coordinates from your Subsurface file or Submersion database
 2. **Scan Images**: Finds all supported image files in the specified directory
 3. **Extract Timestamps**: Reads capture time from each photo's EXIF data
 4. **Match by Time**: Links photos to dives if captured within the dive duration
@@ -141,6 +149,7 @@ python -m pytest tests/ -v
 ## Architecture
 
 - `subsurface_parser.py`: Parses Subsurface XML files
+- `submersion_parser.py`: Reads Submersion SQLite databases
 - `image_processor.py`: Handles EXIF metadata reading/writing  
 - `matcher.py`: Time-based matching logic and user interaction
 - `cli.py`: Command-line interface
