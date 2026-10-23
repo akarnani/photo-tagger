@@ -9,6 +9,7 @@ import click
 
 from . import __version__
 from .subsurface_parser import SubsurfaceParser
+from .submersion_parser import SubmersionParser, is_sqlite_file
 from .media_processor import MediaProcessor
 from .matcher import InteractiveMatcher
 from .exiftool_session import ExifToolSession
@@ -100,8 +101,8 @@ def _check_camera_tag_warnings(dives, matched_dives, photo_timestamps):
 
 @click.command()
 @click.version_option(version=__version__, prog_name='photo-tagger')
-@click.option('--subsurface-file', '-s', required=True,
-              help='Path to Subsurface diving log file (.ssrf)')
+@click.option('--dive-log', '--subsurface-file', '-s', 'dive_log', required=True,
+              help='Path to Subsurface diving log file (.ssrf) or Submersion database (submersion.db)')
 @click.option('--images-dir', '-i', required=True,
               help='Directory containing media files (images and videos)')
 @click.option('--verbose', '-v', is_flag=True,
@@ -112,7 +113,7 @@ def _check_camera_tag_warnings(dives, matched_dives, photo_timestamps):
               help='Search for media files recursively in subdirectories')
 @click.option('--exclude-folders', '-e', multiple=True,
               help='Folder names to exclude from recursive search (can be specified multiple times)')
-def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, recursive: bool, exclude_folders: tuple):
+def main(dive_log: str, images_dir: str, verbose: bool, dry_run: bool, recursive: bool, exclude_folders: tuple):
     """Apply dive site GPS coordinates to media file metadata.
     
     This tool matches photos and videos to dive sites based on capture time and applies
@@ -124,13 +125,17 @@ def main(subsurface_file: str, images_dir: str, verbose: bool, dry_run: bool, re
         click.echo("DRY RUN MODE - No changes will be made to files\n")
     
     try:
-        # Parse subsurface file
-        logger.debug(f"Parsing subsurface file: {subsurface_file}")
-        parser = SubsurfaceParser(subsurface_file)
+        # Parse dive log
+        if is_sqlite_file(dive_log) or dive_log.lower().endswith('.db'):
+            logger.debug(f"Parsing Submersion database: {dive_log}")
+            parser = SubmersionParser(dive_log)
+        else:
+            logger.debug(f"Parsing subsurface file: {dive_log}")
+            parser = SubsurfaceParser(dive_log)
         dives = parser.parse()
 
         if not dives:
-            logger.error("No dives found in subsurface file")
+            logger.error("No dives found in dive log")
             sys.exit(1)
 
         logger.debug(f"Found {len(dives)} dives")
